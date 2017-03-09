@@ -1328,18 +1328,19 @@ void optimiserTpAvecVolatilite(int anneeDebut, int anneeFin, int dP, infoTraitem
 
 void calculGainMinuteSLetVOL(int anneeDebut, int anneeFin, infoTraitement * infT)
 {
-	printf("********************* CALCUL GAIN MINUTE STOP LOSS ET VOL *********************\n\n");
-	
-	double tLast5Vol[NB_VOL_REF] = {0};
-	int idx_last = 0;
+	printf("********************* CALCUL GAIN MINUTE SL ET VOL *********************\n\n");
+
 	clock_t tDeb, tFin;
 	tDeb = clock();
 
 	gainTotalSL.meilleurGainSL = -10000000;
 
+	double tLast5Vol[NB_VOL_REF] = {0};
+	int idx_last = 0;
+
 	dataMinute* donneeMinute, minuteCourante ;
 	int dP, tpa, tpv, tpAtteint, slAtteint, stopMin = infT->slMin, stopMax = infT->slMax; 
-	double pivotAjuste, takeProfit, takeLoss, gainVente, gainAchat, gainOrdre, open, moyAjusteVol, volJournee;
+	double pivotAjuste, takeProfit, takeLoss, gainVente, gainAchat, gainOrdre, moyAjusteVol, volJournee;
 	char transaction, fn[100]; 
 
 	params param ; 
@@ -1371,18 +1372,21 @@ void calculGainMinuteSLetVOL(int anneeDebut, int anneeFin, infoTraitement * infT
 			{
 				for (int day = 0; day < JOUR ; day++)
 				{
-					donneeMinute = &tableauDonnees[year][month][day][MINUTE-1];
-					if (donneeMinute->high <= 0) continue;
+					donneeMinute = &tableauDonnees[year][month][day][MINUTE-1]  ;
+					if(donneeMinute-> high <= 0) continue;
 
-					tpAtteint = 0; slAtteint = 0;
+					tpAtteint = 0;
+					slAtteint = 0;
 					int deltaMin = calculDeltaMin(year, month+1, day+1);
-					open = donneeMinute->open;
+					
+					double open = donneeMinute->open;
 					pivotAjuste = tPivot[year][month][day] * (1.0 + dP / 10000.0) ;
 					moyAjusteVol = recupererMoy5dernieresVol(tLast5Vol, volJournee, &idx_last);
-					
+
 					//printf("%d/%d/%d : deltaMin = %d\n",day, month, year, deltaMin);
 					for (int min = MINUTE_DEBUT + deltaMin; min <= minuteFin + deltaMin ; min++)
 					{
+						
 						minuteCourante = tableauDonnees[year][month][day][min]  ;
 
 						if(minuteCourante.high <= 0) continue;
@@ -1390,13 +1394,19 @@ void calculGainMinuteSLetVOL(int anneeDebut, int anneeFin, infoTraitement * infT
 						if(open >= pivotAjuste) // Cas d'une vente
 						{
 							tGainJourSL[year][month][day].achatOuVente = 0 ; 
-							takeProfit = open - tpv * moyAjusteVol / 10000.0;
+							takeProfit = open - tpv * moyAjusteVol / 100.0;
 							takeLoss = open * (1.0 + ABS_STOP_LOSS_MAX*loss / (10000.0) ); // On ajuste le pas
 							
 							if (minuteCourante.low < takeProfit )
 							{
 								gainOrdre = (open - takeProfit) * MONTANT / open;
+								tGainJourSL[year][month][day].tGain[loss]  = gainOrdre;
+								tGainJourSL[year][month][day].tGainV[loss] = gainOrdre;
+								tGainJourSL[year][month][day].isTp[loss] = 1;
 								tpAtteint = 1;
+								#ifdef DEBUG_SL
+									fprintf(fd, "%d/%d/%d;%.2f;0;%d;0;1\n", day+1, month+1, year, gainOrdre, min);
+								#endif
 								break;
 							
 							}
@@ -1405,8 +1415,15 @@ void calculGainMinuteSLetVOL(int anneeDebut, int anneeFin, infoTraitement * infT
 								//printf("VENTE: on dépasse le stopLoss (%d), high= %f à la minute : %d, %d/%d/%d\n",loss,minuteCourante.low, min, day+1,month+1,year);
 								// On gere le cas d'un stopLoss;
 								gainOrdre = (open - takeLoss) * MONTANT / open;
+								tGainJourSL[year][month][day].tGain[loss] = gainOrdre;
+								tGainJourSL[year][month][day].tGainV[loss] = gainOrdre;
+								tGainJourSL[year][month][day].isSl[loss] = 1;
+								tGainMoisSL[year][month].nbStopLoss[loss]++ ;
+								tGainAnneeSL[year].nbStopLoss[loss]++;
 								slAtteint = 1;
-
+								#ifdef DEBUG_SL
+									fprintf(fd, "%d/%d/%d;%.2f;0;%d;1;0\n", day+1, month+1, year, gainOrdre, min);
+								#endif
 								break;
 							}
 
@@ -1414,27 +1431,42 @@ void calculGainMinuteSLetVOL(int anneeDebut, int anneeFin, infoTraitement * infT
 						// A gerer de la meme maniere que que le cas d'une vente 
 						else // cas d'un achat
 						{
+							gainAchat = tpa/100.0;
 							takeProfit = open + tpa * moyAjusteVol / 100.0;
 							tGainJourSL[year][month][day].achatOuVente = 1 ; 
+							
 							takeLoss = open * (1.0 - ABS_STOP_LOSS_MAX*loss / (10000.0) )  ; // On ajuste le pas
 						
 							if (minuteCourante.high > takeProfit )
 							{
 								gainOrdre = (takeProfit - open) * MONTANT / open;
-
+								tGainJourSL[year][month][day].tGain[loss] = gainOrdre;
+								tGainJourSL[year][month][day].tGainA[loss] = gainOrdre;
+								tGainJourSL[year][month][day].isTp[loss] = 1;
 								tpAtteint = 1;
+								#ifdef DEBUG_SL
+									fprintf(fd, "%d/%d/%d;%.2f;0;%d;0;1\n", day+1, month+1, year, gainOrdre, min);
+								#endif
 								break;
 							}
 							else if(minuteCourante.low < takeLoss )
 							{
 								// On gere le cas d'un stopLoss;
 								gainOrdre = (takeLoss - open) * MONTANT / open;
+								tGainJourSL[year][month][day].tGain[loss] = gainOrdre;
+								tGainJourSL[year][month][day].tGainA[loss] = gainOrdre; 
+								tGainJourSL[year][month][day].isSl[loss] = 1;
+								tGainMoisSL[year][month].nbStopLoss[loss]++ ;
+								tGainAnneeSL[year].nbStopLoss[loss]++;
 								slAtteint = 1;
+								//printf("ACHAT: on dépasse le stoploss (%d), avec une perte de %.2f:, %d/%d/%d\n",loss, tGainJourSL[year][month][day].tGain[loss], day,month,year);
+								#ifdef DEBUG_SL
+									fprintf(fd, "%d/%d/%d;%.2f;0;%d;1;0\n", day+1, month+1, year, gainOrdre, min);
+								#endif
 								break;
 							}
 						}
 					} // for min
-					volJournee = tVolDeuxPasses[year][month][day];
 
 					// On arrive en fin de journée , pas de sl ni tp
 					if(slAtteint == 0 && tpAtteint == 0)
@@ -1446,7 +1478,7 @@ void calculGainMinuteSLetVOL(int anneeDebut, int anneeFin, infoTraitement * infT
 						if(tGainJourSL[year][month][day].achatOuVente == 1)
 						{
 							diffOpenClose = (donneeMinute->close - open);
-							gainOrdre = diffOpenClose != 0 ? diffOpenClose * MONTANT / open : 0;
+							gainOrdre = diffOpenClose !=0 ? diffOpenClose * MONTANT / open : 0;
 							tGainJourSL[year][month][day].tGainA[loss] = gainOrdre;
 						}
 						else
@@ -1457,9 +1489,24 @@ void calculGainMinuteSLetVOL(int anneeDebut, int anneeFin, infoTraitement * infT
 						}
 
 						tGainJourSL[year][month][day].tGain[loss] = gainOrdre;
-
+				
+						#ifdef DEBUG_SL
+							fprintf(fd, "%d/%d/%d;%.2f;0;0;0;0\n", day+1, month+1, year, gainOrdre);
+						#endif
 					}
+					gainTotalSL.tGainVente[loss] += tGainJourSL[year][month][day].tGainV[loss];
+					gainTotalSL.tGainAchat[loss] += tGainJourSL[year][month][day].tGainA[loss];
+					
+					gainTotalSL.perteMax = MIN(gainTotalSL.perteMax, tGainJourSL[year][month][day].tGain[loss] );
+					tGainMoisSL[year][month].tGain[loss] += tGainJourSL[year][month][day].tGain[loss] ;
+
+					volJournee = tVolDeuxPasses[year][month][day];
+
+					FILE *fe = fopen("resulVOL.csv", "a");
+					fprintf(fe, "%d/%d/%d;%f\n",day+1, month+1,year+2000,tGainJourSL[year][month][day].tGain[loss]);
+					fclose(fe);
 				} // for day
+				tGainAnneeSL[year].tGain[loss] += tGainMoisSL[year][month].tGain[loss] ;
 			} // for month
 			gainTotalSL.tGain[loss] += tGainAnneeSL[year].tGain[loss];
 		} // for year
@@ -1469,10 +1516,10 @@ void calculGainMinuteSLetVOL(int anneeDebut, int anneeFin, infoTraitement * infT
 	tFin = clock() ;
 	
 	printf("temps du sl = %f\n", (double)(tFin - tDeb)/CLOCKS_PER_SEC );
-
-	//writeSLResultsToFile(param,stopMin,stopMax, infT);
-	//ecrireSLAetSLVdansFichier(param, infT);
-} 
+	printf("*********************************************************************\n\n");
+	writeSLResultsToFile(param,stopMin,stopMax, infT);
+	ecrireSLAetSLVdansFichier(param, infT);
+}
 
 void ecrireEcartTypeMethodes()
 {
