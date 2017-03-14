@@ -26,14 +26,15 @@
 #define ANNEE_FIN			15
 #define ABS_STOP_LOSS_MAX   10			// En realité le pas 
 #define MINUTE_DEBUT		180
-#define MINUTE_FIN_MIN		720
-#define MINUTE_FIN_MAX		720			// 720 -> 18h
+#define MINUTE_FIN_MIN		660
+#define MINUTE_FIN_MAX		780			// 720 -> 18h
 #define STRATEGIE_SL		1          // 1 = MAX ;   2 = MIN_ANNEE_NEG  ;  3 = MIN_SOMME_ANNEE_NEG ;
 #define NB_VOL_REF			5 
+#define DCLGE_HOR				6
 
 // TAILLES TABLEAUX
 #define TAILLE_LIGNE_MAX 	1000
-#define LEVIER				600
+#define LEVIER					600
 #define IDX_PIVOT_MAX 		300 		// ok version 0.3
 #define IDX_TP_MAX 			300 		// ok version 0.3
 #define DPIVOT 				601 		// ok version 0.3
@@ -63,9 +64,11 @@ struct dataMinute
 typedef struct sGainJour sGainJour ;  // ok version 0.3
 struct sGainJour
 {
-	char 	achatOuVente 					; // 0 : Vente 			-  1 : Achat
+	char 	achatOuVente[DPIVOT]			; // 0 : Vente 			-  1 : Achat
+	char 	tpOuCloture[DPIVOT][TAKE_PROFIT]; // 1 : take profit 	-  0 : cloture
 	double 	tGain[DPIVOT][TAKE_PROFIT];
-	char 	tpOuCloture     				; // 0 : take profit 	-  1 : ordre relaché à la cloture
+	// double	gainHMax 				;
+	// char 		isTpHmax;
 };
 
 
@@ -76,9 +79,25 @@ struct sGainJourSL
 	double 	tGain[STOP_LOSS];
 	double	tGainA[STOP_LOSS];
 	double	tGainV[STOP_LOSS];
-	int 	isSl[STOP_LOSS]; // 0 : false 			-  1 : true
+	char	isSl[STOP_LOSS]; // 0 : false 			-  1 : true
 	char 	isTp[STOP_LOSS]; // 0 : false 			-  1 : true
 	char 	achatOuVente; // 0 : Vente 			-  1 : Achat
+
+};
+
+typedef struct sGainJourHeure sGainJourHeure;
+struct sGainJourHeure
+{
+	double gain;
+	char isTp;
+};
+
+typedef struct sGainJourHeureSL sGainJourHeureSL;
+struct sGainJourHeureSL
+{
+	double gain;
+	char isTp;
+	char isSl;
 };
 
 typedef struct sGainJourMOY sGainJourMOY ;  // ok version 0.3
@@ -144,12 +163,14 @@ typedef struct sGainTotal sGainTotal ;  // ok version 0.3
 struct sGainTotal
 {
 	double 	gainTotalMax;
+	//double 	gainTotalHeureMax;
 	double	gainTotalMinMoisNeg;
 	double	gainTotalMinAnneeNeg;
 	double	gainTotalSommeAnneeNeg;
 	double	sommeGainAnneeNeg;
 	double  tGainA[DPIVOT][TAKE_PROFIT];
 	double  tGainV[DPIVOT][TAKE_PROFIT];
+	//int 	hFermetureMax;
 	int 	deltaPivotMax;
 	int 	deltaPivotMinMoisNeg;
 	int 	deltaPivotMinAnneeNeg;
@@ -178,27 +199,39 @@ struct sGainTotalSL
 	double  tGainAchat[STOP_LOSS];
 	double  tGainVente[STOP_LOSS];
 	double 	meilleurGainSL;
-	int		meilleurSL;
 	double 	meilleurGainSLAchat;
-	int 	meilleurSLAchat;
 	double 	meilleurGainSLVente;
-	int 	meilleurSLVente;
 	double 	perteMax;
+	int	maxSL;
+	int 	maxSLAchat;
+	int 	maxSLVente;
 	int 	dp;
 	int 	tpa;
 	int 	tpv;
 };
 
+typedef struct sGainTotalHeure sGainTotalHeure ;  // ok version 0.3
+struct sGainTotalHeure
+{
+	int heureF;
+	int heureFavecSL;
+	double gainHeureMax;
+	double gainHeureMaxSL;
+	int dp;
+	int tpa;
+	int tpv;
+};
+
 typedef struct sGainTotalMOY sGainTotalMOY ;  // ok version 0.3
 struct sGainTotalMOY
 {
-	double 	meilleurGainMoy;
-	double  tGain[DM][RM];
-	int		meilleurDM; // departMoy
-	int		meilleurRM; // reclacherMoy
-	int 	dp;
-	int 	tpa;
-	int 	tpv;
+	double meilleurGainMoy;
+	double tGain[DM][RM];
+	int meilleurDM; // departMoy
+	int meilleurRM; // reclacherMoy
+	int dp;
+	int tpa;
+	int tpv;
 };
 
 typedef struct sGainTotalMOYetSL sGainTotalMOYetSL ;  // ok version 0.3
@@ -206,9 +239,9 @@ struct sGainTotalMOYetSL
 {
 	double 	meilleurGainMOYetSL;
 	double  tGain[DM][RM][STOP_LOSS];
-	int     meilleurSL;
-	int		meilleurDM; // departMoy
-	int		meilleurRM; // reclacherMoy
+	int   maxSL;
+	int	meilleurDM; // departMoy
+	int	meilleurRM; // reclacherMoy
 	int 	dp;
 	int 	tpa;
 	int 	tpv;
@@ -217,16 +250,16 @@ struct sGainTotalMOYetSL
 typedef struct sGainTotalVOL sGainTotalVOL ;  // ok version 0.3
 struct sGainTotalVOL
 {
-	double 	gainTotalMax		;
-	double  gainAchatMax			;
-	double  gainVenteMax			;
-	int 	tpaMax 					;
-	int 	tpvMax 					;
+	double 	gainTotalMax;
+	double  gainAchatMax;
+	double  gainVenteMax;
+	int 	tpaMax;
+	int 	tpvMax;
 	double  tGainA[TAKE_PROFIT];
 	double  tGainV[TAKE_PROFIT];
-	int  	nbTpa[TAKE_PROFIT]	;
-	int  	nbTpv[TAKE_PROFIT]	;
-	int 	dP                   ;
+	int  	nbTpa[TAKE_PROFIT];
+	int  	nbTpv[TAKE_PROFIT];
+	int 	dP;
 };
 
 
@@ -270,6 +303,7 @@ struct infoTraitement
 	char *optimiserSS;
 	char *optimiserMOYavecSL;
 	char *afficher;
+	char *ecrireGainJ;
 };
 
 typedef struct sparamAppli sparamAppli;  // ok version 0.3
@@ -310,18 +344,33 @@ double					tVolDeuxPasses[ANNEE][MOIS][JOUR]; // volatilité
 //
 sGainJour 				tGainJour[ANNEE][MOIS][JOUR];
 sGainJourSL 			tGainJourSL[ANNEE][MOIS][JOUR];
+
+// stocke le res de 18h
+sGainJourHeure			tGainJourH18[ANNEE][MOIS][JOUR];
+sGainJourHeureSL		tGainJourH18SL[ANNEE][MOIS][JOUR]; 
+
+// stocke les res de la meilleure heure SL
+sGainJourHeure 		tGainJourHeure[ANNEE][MOIS][JOUR];
+sGainJourHeureSL 		tGainJourHeureSL[ANNEE][MOIS][JOUR]; 
+
+
 sGainJourVOL			tGainJourVOL[ANNEE][MOIS][JOUR];
+
 double	 				tGainJourPtf[ANNEE][MOIS][JOUR];
 double	 				tGainJourPtfSL[ANNEE][MOIS][JOUR];
+
 sGainMois				tGainMois[ANNEE][MOIS];
 sGainMoisSL				tGainMoisSL[ANNEE][MOIS];
+
 sGainAnnee				tGainAnnee[ANNEE];
 sGainAnneeSL			tGainAnneeSL[ANNEE];
+
 sGainTotal				gainTotal;
 sGainTotalSL 			gainTotalSL;
 sGainTotalMOY 			gainTotalMOY;
 sGainTotalMOYetSL 	gainTotalMOYetSL;
 sGainTotalVOL			gainTotalVOL;
+sGainTotalHeure		gainTotalHeure;
 
 
 
@@ -351,7 +400,7 @@ void affichageRisqueSL(int anneeDebut, int anneeFin);
 void cumulGainPtf(int anneeDebut, int anneeFin, infoTraitement *infT);
 void cumulGainPtfSL(int anneeDebut, int anneeFin, int loss, infoTraitement *infT);
 void afficherResDebug();
-void writeSLResultsToFile(params p, int slMin, int slMax, infoTraitement *infT);
+void ecrireSLdansFichier(params p, int slMin, int slMax, infoTraitement *infT);
 void verifierSiMeilleurSL(int l, int max, int min);
 params getStrategy();
 void writeDayResultWithSL(int loss, infoTraitement *infT );
@@ -365,6 +414,7 @@ void generateRandomTestFile(infoTraitement* infT);
 void ecrireSLAetSLVdansFichier(params p, infoTraitement *infT);
 void calculGainSLetMOY(int anneeDebut, int anneeFin, infoTraitement * infT);
 void optimiserTpAvecVolatilite(int anneeDebut, int anneeFin, int dP, infoTraitement * infT);
+void affichageGainsJour(int anneeDebut, int anneeFin, infoTraitement *infT);
 
 /*
  * genere une valeur aleatoire pour le pivot (0 ou 10000)
@@ -505,6 +555,11 @@ double calculTpPure(sParamTp p)
 
 int main(int argc, char *argv[])
 {
+
+	
+	memset(tGainJourHeure,0,sizeof(tGainJourHeure));
+	memset(tGainJourHeureSL,0,sizeof(tGainJourHeureSL));
+	memset(&gainTotalHeure,0,sizeof(gainTotalHeure));
 	
 	setPathsInputOutputData();
 
@@ -520,6 +575,8 @@ int main(int argc, char *argv[])
 
 		memset(tGainJourPtf,0,sizeof(tGainJourPtf));
 		memset(tGainJourPtfSL,0,sizeof(tGainJourPtfSL));
+
+
 		for (int i = 0; i < nbDevises; i++)
 		{
 
@@ -535,12 +592,13 @@ int main(int argc, char *argv[])
 			optimisation(ANNEE_DEB, ANNEE_FIN, &paramAppli.listeDevise[i]);
 			optimiserTpAvecVolatilite(ANNEE_DEB, ANNEE_FIN, gainTotal.deltaPivotMax, &paramAppli.listeDevise[0]);
 			calculGainMinuteStopLoss(ANNEE_DEB, ANNEE_FIN, &paramAppli.listeDevise[i]);
-			calculGainMinuteSLetVOL(ANNEE_DEB, ANNEE_FIN, &paramAppli.listeDevise[i]);
+			//calculGainMinuteSLetVOL(ANNEE_DEB, ANNEE_FIN, &paramAppli.listeDevise[i]);
 			calculMeilleureMoyenne(ANNEE_DEB, ANNEE_FIN, &paramAppli.listeDevise[i]);
 			calculGainSLetMOY(ANNEE_DEB, ANNEE_FIN, &paramAppli.listeDevise[i]);
 			affichageResultat( ANNEE_DEB, ANNEE_FIN, &paramAppli.listeDevise[i]);
+			affichageGainsJour( ANNEE_DEB, ANNEE_FIN, &paramAppli.listeDevise[i]);
 			cumulGainPtf(ANNEE_DEB, ANNEE_FIN, &paramAppli.listeDevise[i]);
-			cumulGainPtfSL(ANNEE_DEB, ANNEE_FIN, gainTotalSL.meilleurSL/10, &paramAppli.listeDevise[i]);
+			cumulGainPtfSL(ANNEE_DEB, ANNEE_FIN, gainTotalSL.maxSL/10, &paramAppli.listeDevise[i]);
 
 		}
 		affichageRisque(ANNEE_DEB, ANNEE_FIN);
@@ -632,6 +690,7 @@ int lectureFichierParam(char *nomFichierParam)
     		paramAppli.listeDevise[nbDevises].optimiserSS 			= ligne[21];
     		paramAppli.listeDevise[nbDevises].optimiserMOYavecSL	= ligne[22];
     		paramAppli.listeDevise[nbDevises].afficher 	 			= ligne[23];
+    		paramAppli.listeDevise[nbDevises].ecrireGainJ 	 		= ligne[24];
 
 			//printf("%s %s %s %s %s\n", paramAppli.listeDevise[nbDevises].devise, paramAppli.listeDevise[nbDevises].nomFichierDevise, paramAppli.listeDevise[nbDevises].creationBD, paramAppli.listeDevise[nbDevises].lireBD, paramAppli.listeDevise[nbDevises].optimiser);
 			nbDevises++;
@@ -709,22 +768,28 @@ void initialisation(infoTraitement *infT)
 	paramAppli.fichierBD[l-1] = 'S';
 	strcpy(paramAppli.fichierHeureBD, paramAppli.repertoireData);
 	strcat(paramAppli.fichierHeureBD, "HeureEteHiver.THS");
+	
 	memset(tableauDonnees,0,sizeof(tableauDonnees));
 	memset(gainTotal.tGainV,0,sizeof(gainTotal.tGainV));
 	memset(gainTotal.tGainA,0,sizeof(gainTotal.tGainA));
+
 	memset(tGainMois,0,sizeof(tGainMois));
 	memset(tGainMoisSL,0,sizeof(tGainMoisSL));
+	
 	memset(tGainAnnee,0,sizeof(tGainAnnee));
 	memset(tGainAnneeSL,0,sizeof(tGainAnneeSL));
+
 	memset(tGainJour,0,sizeof(tGainJour));
 	memset(tGainJourSL,0,sizeof(tGainJourSL));
 	memset(tGainJourVOL,0,sizeof(tGainJourVOL));
+	
 	//memset(gainJourPtf,0,sizeof(gainJourPtf));
 	memset(&gainTotal,0,sizeof(gainTotal));
 	memset(&gainTotalSL,0,sizeof(gainTotalSL));
 	memset(&gainTotalMOY,0,sizeof(gainTotalMOY));
 	memset(&gainTotalVOL,0,sizeof(gainTotalVOL));
 	memset(&gainTotalMOYetSL,0,sizeof(gainTotalMOYetSL));
+	
 	memset(tPivot,0,sizeof(tPivot));
 	gainTotal.gainTotalMax = -1000000;
 }
@@ -1517,7 +1582,7 @@ void calculGainMinuteSLetVOL(int anneeDebut, int anneeFin, infoTraitement * infT
 	
 	printf("temps du sl = %f\n", (double)(tFin - tDeb)/CLOCKS_PER_SEC );
 	printf("*********************************************************************\n\n");
-	writeSLResultsToFile(param,stopMin,stopMax, infT);
+	ecrireSLdansFichier(param,stopMin,stopMax, infT);
 	ecrireSLAetSLVdansFichier(param, infT);
 }
 
@@ -1581,6 +1646,52 @@ void calculGains(infoTraitement * infT)
 	//} // if (infT->optimiserGain[0] == 'O' )
 }
 
+void remplirStructJour(int anneeDebut, int anneeFin, sGainJourHeure sJ[ANNEE][MOIS][JOUR])
+{
+	int idx_dP = gainTotal.deltaPivotMax + IDX_PIVOT_MAX;
+	int idx_tpv = gainTotal.tpvGainMax;
+	int idx_tpa = gainTotal.tpaGainMax;
+
+	for (int year = anneeDebut; year <= anneeFin ; year++)
+	{
+		for (int month = 0; month < MOIS ; month++)
+		{
+			for (int day = 0; day < JOUR ; day++)
+			{
+				if(tGainJour[year][month][day].achatOuVente[idx_dP] == 1) // achat
+				{
+					sJ[year][month][day].gain = tGainJour[year][month][day].tGain[idx_dP][idx_tpa];
+					sJ[year][month][day].isTp = tGainJour[year][month][day].tpOuCloture[idx_dP][idx_tpa];
+				}
+				else 
+				{
+					sJ[year][month][day].gain = tGainJour[year][month][day].tGain[idx_dP][idx_tpv];
+					sJ[year][month][day].isTp = tGainJour[year][month][day].tpOuCloture[idx_dP][idx_tpv];
+				}
+			}
+		}
+	}
+}
+
+void comparerMeilleureHeure(int anneeDebut, int anneeFin)
+{
+	if(gainTotal.gainTotalMax < gainTotalHeure.gainHeureMax) return;
+
+	gainTotalHeure.heureF = minuteFin / 60;
+	gainTotalHeure.gainHeureMax = gainTotal.gainTotalMax;
+
+	remplirStructJour(anneeDebut, anneeFin, tGainJourHeure);
+}
+
+void comparer18Heure(int anneeDebut, int anneeFin)
+{
+	if(minuteFin / 60 != 18 - DCLGE_HOR) return;
+
+	remplirStructJour(anneeDebut, anneeFin, tGainJourH18);
+}
+
+
+
 double calculGainJourRapide(int anneeDebut, int anneeFin, int deltaP, double gainAchat, double gainVente, infoTraitement * infT)
 {
 	dataMinute *donneeMinute ;
@@ -1600,20 +1711,24 @@ double calculGainJourRapide(int anneeDebut, int anneeFin, int deltaP, double gai
 				donneeMinute = &tableauDonnees[year][month][day][MINUTE -1]  ;
 				if (donneeMinute->high > 0)
 				{
-					pivotAjuste = tPivot[year][month][day] * (1.0 + deltaP / 10000.0) ;
+					pivotAjuste = tPivot[year][month][day] * (1.0 + dP / 10000.0) ;
 					open = donneeMinute->open;
 					//printf("dPivot: %f   gainTotV: %f   gainTotA: %f\n",dPivot, paramGainOpti.gainTotV, paramGainOpti.gainTotA );
 					if(donneeMinute->open >= pivotAjuste)
 					{
 						nbVente++;
-						tGainJour[year][month][day].achatOuVente = 0;
+						tGainJour[year][month][day].achatOuVente[dP + IDX_PIVOT_MAX] = 0;
 						for (int tpv= infT->tpvMin; tpv<=infT->tpvMax; tpv++)
 						{
 							gainVente = tpv/100.0;
 							takeProfit = donneeMinute->open * (1.0 - gainVente / 100.0)  ;
 							//donneeMinute->open = (takeProfit <= donneeMinute->high) ? (donneeMinute->open - takeProfit) * MONTANT / donneeMinute->open :  (donneeMinute->open - donneeMinute->close) * MONTANT / donneeMinute->open;
 							if (donneeMinute->low <= takeProfit)
-								 tGainJour[year][month][day].tGain[dP + IDX_PIVOT_MAX][tpv] = (donneeMinute->open - takeProfit) * MONTANT / donneeMinute->open ;
+							{
+								tGainJour[year][month][day].tGain[dP + IDX_PIVOT_MAX][tpv] = (donneeMinute->open - takeProfit) * MONTANT / donneeMinute->open ;
+								tGainJour[year][month][day].tpOuCloture[dP + IDX_PIVOT_MAX][tpv] = 1;
+							}
+
 							else tGainJour[year][month][day].tGain[dP + IDX_PIVOT_MAX][tpv] = (donneeMinute->open - donneeMinute->close) * MONTANT / donneeMinute->open;
 							//printf("avant - gainTpvDp[tpv][%d + 200]: %f\n",dP, gainTpvDp[tpv][dP + 200]);
 							
@@ -1630,14 +1745,17 @@ double calculGainJourRapide(int anneeDebut, int anneeFin, int deltaP, double gai
 					else
 					{
 						nbAchat++;
-						tGainJour[year][month][day].achatOuVente = 1;
+						tGainJour[year][month][day].achatOuVente[dP + IDX_PIVOT_MAX] = 1;
 						for (int tpa= infT->tpaMin; tpa <= infT->tpaMax; tpa++)
 						{
 							gainAchat = tpa/100.0;
 							takeProfit = donneeMinute->open * (1.0 + gainAchat / 100.0)  ;
 							//donneeMinute->open = (takeProfit >= donneeMinute->low) ? (takeProfit - donneeMinute->open ) * MONTANT / donneeMinute->open :  (donneeMinute->close - donneeMinute->open ) * MONTANT / donneeMinute->open;
 							if (donneeMinute->high >= takeProfit)
-								 tGainJour[year][month][day].tGain[dP + IDX_PIVOT_MAX][tpa] = (takeProfit - donneeMinute->open ) * MONTANT / donneeMinute->open;
+							{
+								tGainJour[year][month][day].tGain[dP + IDX_PIVOT_MAX][tpa] = (takeProfit - donneeMinute->open ) * MONTANT / donneeMinute->open;
+								tGainJour[year][month][day].tpOuCloture[dP + IDX_PIVOT_MAX][tpa] = 1;
+							}
 							else tGainJour[year][month][day].tGain[dP + IDX_PIVOT_MAX][tpa] = (donneeMinute->close - donneeMinute->open ) * MONTANT / donneeMinute->open;
 							
 							
@@ -1688,10 +1806,47 @@ double calculGainJourRapide(int anneeDebut, int anneeFin, int deltaP, double gai
 			gainTotal.gainTotalMax	= gainTotal.tGainA[dP + IDX_PIVOT_MAX][tpaOpti] + gainTotal.tGainV[dP + IDX_PIVOT_MAX][tpvOpti];
 		}
 
+
+	comparerMeilleureHeure(anneeDebut, anneeFin);
+	comparer18Heure(anneeDebut, anneeFin);
+
 	return gainTotal.gainTotalMax;
 }
 
+void remplirStructJourSL(int anneeDebut, int anneeFin, sGainJourHeureSL sJ[ANNEE][MOIS][JOUR])
+{
+	int idx_sl = gainTotalSL.maxSL / 10;
 
+	for (int year = anneeDebut; year <= anneeFin ; year++)
+	{
+		for (int month = 0; month < MOIS ; month++)
+		{
+			for (int day = 0; day < JOUR ; day++)
+			{
+				sJ[year][month][day].gain = tGainJourSL[year][month][day].tGain[idx_sl];
+				sJ[year][month][day].isTp = tGainJourSL[year][month][day].isTp[idx_sl];
+				sJ[year][month][day].isSl = tGainJourSL[year][month][day].isSl[idx_sl];
+			}
+		}
+	}
+}
+
+void comparerMeilleureHeureSL(int anneeDebut, int anneeFin)
+{
+	if(gainTotalSL.meilleurGainSL < gainTotalHeure.gainHeureMaxSL) return;
+
+	gainTotalHeure.heureFavecSL = minuteFin / 60;
+	gainTotalHeure.gainHeureMaxSL = gainTotalSL.meilleurGainSL;
+
+	remplirStructJourSL(anneeDebut, anneeFin, tGainJourHeureSL);
+}
+
+void comparer18HeureSL(int anneeDebut, int anneeFin)
+{
+	if(minuteFin / 60 != 18 - DCLGE_HOR) return;
+
+	remplirStructJourSL(anneeDebut, anneeFin, tGainJourH18SL);
+}
 
 void calculGainMinuteStopLoss(int anneeDebut, int anneeFin, infoTraitement * infT /*,double (*calculTp)(paramTp pTp) */)
 {
@@ -1872,14 +2027,19 @@ void calculGainMinuteStopLoss(int anneeDebut, int anneeFin, infoTraitement * inf
 			gainTotalSL.tGain[loss] += tGainAnneeSL[year].tGain[loss];
 		} // for year
 		verifierSiMeilleurSL(loss, stopMin, stopMax);
-		
 	} // for loss
+
+	comparerMeilleureHeureSL(anneeDebut, anneeFin);
+	comparer18HeureSL(anneeDebut, anneeFin);
+	
+	ecrireSLdansFichier(param,stopMin,stopMax, infT);
+	ecrireSLAetSLVdansFichier(param, infT);
+
 	tFin = clock() ;
 	
 	printf("temps du sl = %f\n", (double)(tFin - tDeb)/CLOCKS_PER_SEC );
 	printf("*********************************************************************\n\n");
-	writeSLResultsToFile(param,stopMin,stopMax, infT);
-	ecrireSLAetSLVdansFichier(param, infT);
+
 } 
 
 /*
@@ -1895,7 +2055,7 @@ void ecrireSLAetSLVdansFichier(params p, infoTraitement *infT)
 	double gainJour;
 	sGainJourSL bilanJour;
 
-	sprintf(fname, "%sSLA_SLV_%s_%s.csv", paramAppli.repertoireRes, infT->devise, p.strategie);
+	sprintf(fname, "%sSLA_SLV_%s_%s.csv", paramAppli.repertoireRes, p.strategie, infT->devise);
 	FILE *fd = fopen(fname,"w");
 	if(fd == NULL)
 	{
@@ -1903,8 +2063,8 @@ void ecrireSLAetSLVdansFichier(params p, infoTraitement *infT)
 		return;
 	}
 
-	slA = gainTotalSL.meilleurSLAchat;
-	slV = gainTotalSL.meilleurSLVente;
+	slA = gainTotalSL.maxSLAchat;
+	slV = gainTotalSL.maxSLVente;
 	indexSlA = slA / 10;
 	indexSlV = slV / 10;
 
@@ -1941,17 +2101,17 @@ void ecrireSLAetSLVdansFichier(params p, infoTraitement *infT)
  * en fonction du stoploss.
  * Est appelée dans calculGainStopLoss()
  */
-void writeSLResultsToFile(params p, int slMin, int slMax, infoTraitement *infT)
+void ecrireSLdansFichier(params p, int slMin, int slMax, infoTraitement *infT)
 {
 	char filename[50] ;
 
-	sprintf(filename, "resultats/%s_%s_SL.csv", infT->devise, p.strategie);
+	sprintf(filename, "resultats/SL_%s_%s_9h_%dh.csv", p.strategie, infT->devise, (minuteFin+360)/60);
 	FILE *fichierResSL = fopen(filename,"w");
 	if(fichierResSL != NULL){
 		fprintf(fichierResSL, "strategie: %s\n", p.strategie);
 		fprintf(fichierResSL, "dP= %d, tpa= %d, tpv=%d, slMin=%d, slMax=%d\n\n",p.dp, p.tpa, p.tpv, slMin, slMax);
 		fprintf(fichierResSL, "gain total sans stoploss; gain total avec stoploss; meilleur sl;gain achat;slAchat; gain vente;slVente; perte max absolue\n");
-		fprintf(fichierResSL, "%.2f;%.2f;%d(%.2f€);%.2f;%d(%.2f€);%.2f;%d(%.2f€);%.2f\n\n",gainTotal.gainTotalMax, gainTotalSL.meilleurGainSL, gainTotalSL.meilleurSL, gainTotalSL.meilleurSL*MONTANT/10000.0, gainTotalSL.meilleurGainSLAchat, gainTotalSL.meilleurSLAchat, gainTotalSL.meilleurSLAchat*MONTANT/10000.0, gainTotalSL.meilleurGainSLVente, gainTotalSL.meilleurSLVente, gainTotalSL.meilleurSLVente*MONTANT/10000.0, gainTotalSL.perteMax);
+		fprintf(fichierResSL, "%.2f;%.2f;%d(%.2f€);%.2f;%d(%.2f€);%.2f;%d(%.2f€);%.2f\n\n",gainTotal.gainTotalMax, gainTotalSL.meilleurGainSL, gainTotalSL.maxSL, gainTotalSL.maxSL*MONTANT/10000.0, gainTotalSL.meilleurGainSLAchat, gainTotalSL.maxSLAchat, gainTotalSL.maxSLAchat*MONTANT/10000.0, gainTotalSL.meilleurGainSLVente, gainTotalSL.maxSLVente, gainTotalSL.maxSLVente*MONTANT/10000.0, gainTotalSL.perteMax);
 		fprintf(fichierResSL, "stoploss;gain;gain Achat; gain Vente\n");
 		for(int i=0;i<STOP_LOSS;i++)
 		{
@@ -1968,19 +2128,19 @@ void verifierSiMeilleurSL(int l, int min, int max)
 {
 	if( gainTotalSL.meilleurGainSL < gainTotalSL.tGain[l]){
 		gainTotalSL.meilleurGainSL = gainTotalSL.tGain[l];
-		gainTotalSL.meilleurSL     = ABS_STOP_LOSS_MAX*l;
-		printf("on trouve un meilleur sl : %d qui donne un gain: %.2f\n",gainTotalSL.meilleurSL, gainTotalSL.meilleurGainSL);
+		gainTotalSL.maxSL     = ABS_STOP_LOSS_MAX*l;
+		printf("on trouve un meilleur sl : %d qui donne un gain: %.2f\n",gainTotalSL.maxSL, gainTotalSL.meilleurGainSL);
 	}
 	
 	if( gainTotalSL.meilleurGainSLAchat < gainTotalSL.tGainAchat[l]){
 		gainTotalSL.meilleurGainSLAchat = gainTotalSL.tGainAchat[l];
-		gainTotalSL.meilleurSLAchat     = ABS_STOP_LOSS_MAX*l;
-		//printf("on trouve un meilleur slAchat : %d qui donne un gain: %.2f\n",gainTotalSL.meilleurSLAchat, gainTotalSL.meilleurGainSLAchat);
+		gainTotalSL.maxSLAchat     = ABS_STOP_LOSS_MAX*l;
+		//printf("on trouve un meilleur slAchat : %d qui donne un gain: %.2f\n",gainTotalSL.maxSLAchat, gainTotalSL.meilleurGainSLAchat);
 	}
 	if( gainTotalSL.meilleurGainSLVente < gainTotalSL.tGainVente[l]){
 		gainTotalSL.meilleurGainSLVente = gainTotalSL.tGainVente[l];
-		gainTotalSL.meilleurSLVente     = ABS_STOP_LOSS_MAX*l;
-		//printf("on trouve un meilleur slVente : %d qui donne un gain: %.2f\n",gainTotalSL.meilleurSLVente, gainTotalSL.meilleurGainSLVente);
+		gainTotalSL.maxSLVente     = ABS_STOP_LOSS_MAX*l;
+		//printf("on trouve un meilleur slVente : %d qui donne un gain: %.2f\n",gainTotalSL.maxSLVente, gainTotalSL.meilleurGainSLVente);
 	}
 }
 
@@ -2399,7 +2559,7 @@ void calculGainSLetMOY(int anneeDebut, int anneeFin, infoTraitement * infT)
 					gainTotalMOYetSL.meilleurGainMOYetSL = gainTotalMOYetSL.tGain[departMoy][relacherMoy][loss];
 					gainTotalMOYetSL.meilleurDM = departMoy;
 					gainTotalMOYetSL.meilleurRM = relacherMoy;
-					gainTotalMOYetSL.meilleurSL = loss*ABS_STOP_LOSS_MAX;
+					gainTotalMOYetSL.maxSL = loss*ABS_STOP_LOSS_MAX;
 					printf("departMoy=%d, relacherMoy=%d, loss=%d, gain:%.2f\n", departMoy, relacherMoy, loss, gainTotalMOYetSL.meilleurGainMOYetSL );
 				}
 				
@@ -2414,7 +2574,7 @@ void calculGainSLetMOY(int anneeDebut, int anneeFin, infoTraitement * infT)
 	tFin = clock() ;
 	printf("temps de la MOYetSL = %f\n",(double)(tFin - tDeb) / CLOCKS_PER_SEC );
 
-	printf("meilleur gain MOY et SL: %.2f paramMOY (%d, %d) SL(%d)\n", gainTotalMOYetSL.meilleurGainMOYetSL, gainTotalMOYetSL.meilleurDM, gainTotalMOYetSL.meilleurRM, gainTotalMOYetSL.meilleurSL);
+	printf("meilleur gain MOY et SL: %.2f paramMOY (%d, %d) SL(%d)\n", gainTotalMOYetSL.meilleurGainMOYetSL, gainTotalMOYetSL.meilleurDM, gainTotalMOYetSL.meilleurRM, gainTotalMOYetSL.maxSL);
 }
 
 void optimisation(int anneeDebut, int anneeFin, infoTraitement * infT)
@@ -2581,12 +2741,64 @@ void affichageResultat(int anneeDebut, int anneeFin, infoTraitement *infT)
 			}
 			printf("--------------------------\n");
 			printf("meilleur gain avec le SL: %f\n",gainTotalSL.meilleurGainSL);
-			printf("SL: %.2f€\n",gainTotalSL.meilleurSL * MONTANT / 10000.0);
+			printf("SL: %.2f€\n",gainTotalSL.maxSL * MONTANT / 10000.0);
 			printf("--------------------------\n");
 			printf("**************************************************************************\n\n");
 		} // if (paramAppli.optimiserGain == 'O')
 		fclose(fichierResOpti);
 	} // if (paramAppli.afficher == 'O')
+}
+
+
+/*
+ * 
+ *
+ *
+ *
+ */
+void affichageGainsJour(int anneeDebut, int anneeFin, infoTraitement *infT)
+{
+	char fname[400];
+	sGainJourHeure resJ, resJH;
+	sGainJourHeureSL resJSL, resJHSL;
+	int idx_dP = gainTotal.deltaPivotMax + IDX_PIVOT_MAX;
+	int idx_sl = gainTotalSL.maxSL/10;
+
+	sprintf(fname, "%s/gainJour%s.csv", paramAppli.repertoireRes, infT->devise);
+
+	FILE *fd = fopen(fname, "w");
+	if(fd == NULL)
+	{
+		printf("Le fichier %s n'a pas pu etre ouvert \n", fname);
+		return; 
+	} 
+
+	fprintf(fd, "date;gain (18h);isTp;gain sl;isTp;isSl;gain heure (%dh);isTp;gain heure SL (%dh);isTp;isSl\n", gainTotalHeure.heureF + DCLGE_HOR, gainTotalHeure.heureFavecSL + DCLGE_HOR);
+
+	for (int year = anneeDebut; year <= anneeFin ; year++)
+	{
+		for (int month = 0; month < MOIS ; month++)
+		{
+			for (int day = 0; day < JOUR ; day++)
+			{
+				fprintf(fd, "%d/%d/%d;", day+1, month+1, year+2000);
+				//printf("%f \n", tGainJourSL[year][month][day].tGain[gainTotalSL.maxSL/10]);
+				resJ = tGainJourH18[year][month][day];
+				resJSL = tGainJourH18SL[year][month][day];
+				resJH = tGainJourHeure[year][month][day];
+				resJHSL = tGainJourHeureSL[year][month][day];
+
+				fprintf(fd, "%f;%d;", resJ.gain, resJ.isTp);
+				fprintf(fd, "%f;%d;%d;", resJSL.gain, resJSL.isTp, resJSL.isSl);
+
+				fprintf(fd, "%f;%d;", resJH.gain, resJH.isTp);
+				fprintf(fd, "%f;%d;%d\n", resJHSL.gain, resJHSL.isTp, resJHSL.isSl);
+
+			}
+		}
+	}
+
+	fclose(fd);
 }
 
 void affichageRisque(int anneeDebut, int anneeFin)
@@ -2659,17 +2871,18 @@ void cumulGainPtf(int anneeDebut, int anneeFin, infoTraitement *infT)
 	double cumulCourant=0, cumulMaxPerte=0;
 	FILE *fichierResOpti = fopen(paramAppli.nomFichierRes,"a");
 	int tp;
+	int idx_dP = gainTotal.deltaPivotMax + IDX_PIVOT_MAX;
 	for (int year = anneeDebut; year <= anneeFin ; year++)
 	{
 		for (int month = 0; month < MOIS ; month++)
 		{
 			for (int day = 0; day < JOUR ; day++)
 			{
-				tp = tGainJour[year][month][day].achatOuVente == 0 ? gainTotal.tpvGainMax : gainTotal.tpaGainMax;
-				cumulCourant += tGainJour[year][month][day].tGain[gainTotal.deltaPivotMax + IDX_PIVOT_MAX][tp];
+				tp = tGainJour[year][month][day].achatOuVente[idx_dP] == 0 ? gainTotal.tpvGainMax : gainTotal.tpaGainMax;
+				cumulCourant += tGainJour[year][month][day].tGain[idx_dP][tp];
 				if (cumulCourant > 0) cumulCourant = 0;
 				cumulMaxPerte = MIN(cumulCourant, cumulMaxPerte);
-				tGainJourPtf[year][month][day] += tGainJour[year][month][day].tGain[gainTotal.deltaPivotMax + IDX_PIVOT_MAX][tp];
+				tGainJourPtf[year][month][day] += tGainJour[year][month][day].tGain[idx_dP][tp];
 			} // for day
 		} // for month
 	} // for year
