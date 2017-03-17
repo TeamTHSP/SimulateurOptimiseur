@@ -1,0 +1,43 @@
+Correlation SL et heureFermeture
+
+EURUSD : 
+	Fixe/SL : 50 
+	Fixe/H : 17h
+	Fixe/SL/H: 50;17h  
+
+
+EURCHF :
+	Fixe/SL : 70 
+	Fixe/H : 18h
+	Fixe/SL/H: 70;18h
+
+
+AUDUSD :
+	Fixe/SL : 80 
+	Fixe/H : 19h
+	Fixe/SL/H: 100;22h (27376€ contre 26494€)
+
+ --> SL et Hfermteure NE devraient PAS etre calculé séparemment
+
+EURGBP :
+	Fixe/SL : 40 
+	Fixe/H : 16h
+	Fixe/SL/H: 40;16h
+
+
+NZDUSD : 
+	Fixe/SL : 220 
+	Fixe/H : 18h
+	Fixe/SL/H: 220;18h
+
+USDCAD :
+	Fixe/SL : 150 
+	Fixe/H : 19h
+	Fixe/SL/H: 150;24h (18005€ contre 17764€)
+
+EURJPY :
+	Fixe/SL : 10 
+	Fixe/H : 17h
+	Fixe/SL/H: 10;17h
+
+

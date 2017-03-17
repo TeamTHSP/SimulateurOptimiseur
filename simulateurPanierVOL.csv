@@ -1,0 +1,8 @@
+devise;nom du fichier;valeur pips;delta pivot min;delta pivot max;tpa min;tpa max;tpv min;tpv max;slMin;slMax;departMoy min;departMoy max;relacheMoy min;departMoy max;ecart SS min;ecart SS max;créer la BD;optimiserGain;optimiserSL;optimiserMOY;optimiserSS;optimiserMOYavecSL;afficher;ecrireGainJ
+EURUSD;EURUSD_2006_2016.csv;10000;9;18;-112;-112;304;304;362;362;5;5;10;1000;1;100;1;500;N;N;O;N;N;N;O;O
+EURCHF;EURCHF_2006_2016.csv;10000;9;18;-53;-53;238;238;469;469;7;7;0;1000;0;1000;1;500;N;N;O;N;N;N;O;O
+AUDUSD;AUDUSD_2006_2016.csv;10000;9;18;-17;-17;290;290;500;500;8;8;0;1000;0;1000;1;500;N;N;O;N;N;N;O;O
+EURGBP;EURGBP_2006_2016.csv;10000;9;18;-23;-23;404;404;470;470;4;4;0;1000;0;1000;1;500;N;N;O;N;N;N;O;O
+NZDUSD;NZDUSD_2006_2016.csv;10000;9;18;115;115;144;144;254;254;22;22;0;1000;0;1000;1;500;N;N;O;N;N;N;O;O
+USDCAD;USDCAD_2006_2016.csv;10000;9;18;13;13;462;462;157;157;15;15;0;1000;0;1000;1;500;N;N;O;N;N;N;O;O
+EURJPY;EURJPY_2006_2016.csv;100;9;18;-100;-100;377;377;466;466;1;1;0;1000;0;1000;1;500;N;N;O;N;N;N;O;O

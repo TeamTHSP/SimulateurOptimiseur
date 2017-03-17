@@ -26,8 +26,8 @@
 #define ANNEE_FIN			15
 #define ABS_STOP_LOSS_MAX   10			// En realité le pas 
 #define MINUTE_DEBUT		180
-#define MINUTE_FIN_MIN		360
-#define MINUTE_FIN_MAX		1080			// 720 -> 18h
+#define MINUTE_FIN_MIN		660
+#define MINUTE_FIN_MAX		780			// 720 -> 18h
 #define STRATEGIE_SL		1          // 1 = MAX ;   2 = MIN_ANNEE_NEG  ;  3 = MIN_SOMME_ANNEE_NEG ;
 #define NB_VOL_REF			5 
 #define DCLGE_HOR				6
@@ -374,10 +374,10 @@ sGainTotal				gainTotal;
 sGainTotalSL 			gainTotalSL;
 sGainTotalSL 			gainTotalSL_VOL;
 sGainTotalMOY 			gainTotalMOY;
-sGainTotalMOYetSL 	gainTotalMOYetSL;
+sGainTotalMOYetSL 		gainTotalMOYetSL;
 sGainTotalVOL			gainTotalVOL;
-sGainTotalHeure		gainTotalHeure;
-sGainTotalHeure		gainTotalHeureVOL;
+sGainTotalHeure			gainTotalHeure;
+sGainTotalHeure			gainTotalHeureVOL;
 
 
 
@@ -593,7 +593,7 @@ int main(int argc, char *argv[])
 			//printf("avant lectureFichiersData\n");
 			lectureFichiersData(&paramAppli.listeDevise[i]);
 
-			generateRandomTestFile(&paramAppli.listeDevise[i]);
+			//generateRandomTestFile(&paramAppli.listeDevise[i]);
 			//printf("apres lecture\n");
 			ecritureBD(&paramAppli.listeDevise[i]);
 			calculGains(&paramAppli.listeDevise[i]);
@@ -636,7 +636,7 @@ void generateRandomTestFile(infoTraitement* infT)
  */
 void viderFichierResultat(int mF)
 {
-	char filename[100] ;
+	char filename[500] ;
 	strcpy(filename, paramAppli.nomFichierRes);
 	FILE *fichierResOpti = fopen(filename,"w");
 		if(fichierResOpti != NULL)
@@ -797,6 +797,8 @@ void initialisation(infoTraitement *infT)
 	//memset(gainJourPtf,0,sizeof(gainJourPtf));
 	memset(&gainTotal,0,sizeof(gainTotal));
 	memset(&gainTotalSL,0,sizeof(gainTotalSL));
+	memset(&gainTotalSL_VOL,0,sizeof(gainTotalSL_VOL));
+
 	memset(&gainTotalMOY,0,sizeof(gainTotalMOY));
 	memset(&gainTotalVOL,0,sizeof(gainTotalVOL));
 	memset(&gainTotalMOYetSL,0,sizeof(gainTotalMOYetSL));
@@ -1456,7 +1458,7 @@ void recupererGainMax(struct sGainTotalVOL *s, infoTraitement *infT)
 
 	s->gainTotalMax = s->gainVenteMax + s->gainAchatMax;
 
-	printf("gainMax total  (tpa=%d, tpv=%d, %dh): %.2f\n", s->tpaMax, s->tpvMax, s->gainTotalMax, minuteFin/60 + DCLGE_HOR);
+	printf("gainMax total  (tpa=%d, tpv=%d, %dh): %.2f\n", s->tpaMax, s->tpvMax, minuteFin/60 + DCLGE_HOR, s->gainTotalMax);
 }
 
 /*
@@ -2012,6 +2014,8 @@ double calculGainJourRapide(int anneeDebut, int anneeFin, int deltaP, double gai
 							//printf("après - gainTpvDp[tpv][%d + 200]: %f\n",dP, gainTpvDp[tpv][dP + 200]);
 							//resYear += tGainJour[year][month][day].tGain[dP + 200][tpv];
 
+							//printf("%d/%d/%d;%f\n", day+1, month+1,year+2000, gainJournee);
+
 						}
 
 					}
@@ -2039,7 +2043,7 @@ double calculGainJourRapide(int anneeDebut, int anneeFin, int deltaP, double gai
 							gainTotal.tGainA[dP + IDX_PIVOT_MAX][tpa] += gainJournee;
 							//printf("gainTpaDp[%d][%d + 200]: %f  gainTpvDp[%d][%d + 200]: %f\n",tpa, dP, gainTpaDp[tpa][dP + 200],97, dP, gainTpvDp[97][dP + 200]);
 							//resYear += tGainJour[year][month][day].tGain[dP + 200][tpa];
-
+							//printf("%d/%d/%d;%f\n", day+1, month+1,year+2000, gainJournee);
 							
 
 						}
@@ -2047,7 +2051,10 @@ double calculGainJourRapide(int anneeDebut, int anneeFin, int deltaP, double gai
 					
 					//printf("%.2d/%.2d/%d  %c   gain: %f    tp: %f  open: %f  high: %f  low: %f  close: %f\n",day, month, year,transaction, donneeMinute->gain, takeProfit,donneeMinute->open, donneeMinute->high, donneeMinute->low, donneeMinute->close );
 					//gainTotal += donneeMinute->gain;
+
 				}
+
+
 			}
 		}
 		 // if (dP >= -290)
@@ -2841,6 +2848,31 @@ void optimisation(int anneeDebut, int anneeFin, infoTraitement * infT)
 	paramAppli.tempsOpti = (double)(tFin - tDeb)/CLOCKS_PER_SEC;
 }
 
+void printMemoireUtilise()
+{
+	printf("**********************   ESPACE MEMOIRE *********************************\n");
+		printf("données minutes: %lu\npivot: %lu\nvolDeuxPasses: %lu\nmoy val: %lu\n", sizeof(tableauDonnees) , sizeof(tPivot) , sizeof(tVolDeuxPasses), sizeof(tMoy));
+		printf("gain mois: %lu\ngain année: %lu\ngain total: %lu\n", sizeof(tGainMois) , sizeof(tGainAnnee) , sizeof(gainTotal));
+		printf("gain jour: %lu\tgain jourSL: %lu\tgainJourSL_VOL:%lu\tgainJourVOL: %lu\n", sizeof(tGainJour), sizeof(tGainJourSL), sizeof(tGainJourSL_VOL), sizeof(tGainJourVOL));
+		printf("gain jour H18-H18SL-H18VOL-H18SLVOL: %lu\n", 2 * sizeof(tGainJourH18) + 2 * sizeof(tGainJourH18SL));
+		printf("gain jour (MH->meilleure heure) MH-MHSL-MHVOL-MHSLVOL: %lu\n", 2 * sizeof(tGainJourHeure) + 2 * sizeof(tGainJourHeureSL));
+		printf("gain ptf :%lu\t, gain ptfSL: %lu\n", sizeof(tGainJourPtf), sizeof(tGainJourPtfSL));
+		printf("gainTotal: %lu\tgainTotalSL: %lu\tgainTotalSL_VOL: %lu\tgainTotalMOY: %lu\tgainTotalMOYetSL: %lu\tgainTotalVOL: %lu\tgainTotalHeure: %lu\tgainTotalHeureVOL: %lu\n", sizeof(gainTotal), sizeof(gainTotalSL), sizeof(gainTotalSL_VOL), sizeof(gainTotalMOY), sizeof(gainTotalMOYetSL), sizeof(gainTotalVOL), sizeof(gainTotalHeure), sizeof(gainTotalHeureVOL));
+		printf("Espace mémoire total alloué: %.2f Mo\n",( sizeof(tableauDonnees) + sizeof(tPivot) + sizeof(tVolDeuxPasses) + sizeof(tMoy) + sizeof(tGainMois) + sizeof(tGainAnnee) + sizeof(gainTotal) + sizeof(tGainJour) + sizeof(tGainJourSL) + sizeof(tGainJourSL_VOL) + sizeof(tGainJourVOL) + 4 * sizeof(tGainJourH18) + 4 * sizeof(tGainJourH18SL) + sizeof(tGainJourPtf) + sizeof(tGainJourPtfSL) + sizeof(gainTotal) + sizeof(gainTotalSL) + sizeof(gainTotalSL_VOL) + sizeof(gainTotalMOY) + sizeof(gainTotalMOYetSL) + sizeof(gainTotalVOL) + sizeof(gainTotalHeure) + sizeof(gainTotalHeureVOL) ) / 1000000.0);
+
+		printf("**************************************************************************\n\n");
+}
+
+void printTempsExecution()
+{
+	printf("**********************   TEMPS EXECUTION *********************************\n");
+	printf("temps de lecture des fichiers: %2.3f s\n\n", paramAppli.tempsLectureFichiers);
+	//printf("temps d'écriture du fichier BD: %2.3f s\n", paramAppli.tempsEcritureBD);
+	printf("Temps calcul pivot: %f   temps calcul gain jour:%f\n", paramAppli.tempsCalculPivot, paramAppli.tempsCalculGainJour );
+	printf("Temps calcul opti min mois neg: %f   \n", paramAppli.tempsOpti );
+	printf("**************************************************************************\n\n");
+}
+
 void affichageResultat(int anneeDebut, int anneeFin, infoTraitement *infT)
 {
 	if (infT->afficher[0] == 'O')
@@ -2853,19 +2885,9 @@ void affichageResultat(int anneeDebut, int anneeFin, infoTraitement *infT)
 			return; 
 		} 
 
-		printf("**********************   ESPACE MEMOIRE *********************************\n");
-		printf("données minutes: %lu\npivot: %lu\ngain jour: %lu\n", sizeof(tableauDonnees) , sizeof(tPivot) , sizeof(tGainJour));
-		printf("gain mois: %lu\ngain année: %lu\ngain total: %lu\n", sizeof(tGainMois) , sizeof(tGainAnnee) , sizeof(gainTotal));
-		printf("Espace mémoire total alloué: %lu\n", sizeof(tableauDonnees) + sizeof(tPivot) + sizeof(tGainJour) + sizeof(tGainMois) + sizeof(tGainAnnee) + sizeof(gainTotal));
-		printf("**************************************************************************\n\n");
+		printMemoireUtilise();
 
-		printf("**********************   TEMPS EXECUTION *********************************\n");
-		printf("temps de lecture des fichiers: %2.3f s\n\n", paramAppli.tempsLectureFichiers);
-		//printf("temps d'écriture du fichier BD: %2.3f s\n", paramAppli.tempsEcritureBD);
-		printf("Temps calcul pivot: %f   temps calcul gain jour:%f\n", paramAppli.tempsCalculPivot, paramAppli.tempsCalculGainJour );
-		printf("Temps calcul opti min mois neg: %f   \n", paramAppli.tempsOpti );
-		printf("**************************************************************************\n\n");
-
+		printTempsExecution();
 
 		printf("**********************   RESULTATS OPTIMISATION *********************************\n");
 		printf("gain opti max: %f \t gainOpti Achat: %f \t gainOpti Vente: %f\n",gainTotal.gainTotalMax, gainTotal.tGainA[ gainTotal.deltaPivotMax + IDX_PIVOT_MAX][ gainTotal.tpaGainMax], gainTotal.tGainV[ gainTotal.deltaPivotMax + IDX_PIVOT_MAX][gainTotal.tpvGainMax]);
