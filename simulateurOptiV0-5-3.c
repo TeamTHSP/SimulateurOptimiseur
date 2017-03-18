@@ -26,8 +26,8 @@
 #define ANNEE_FIN			15
 #define ABS_STOP_LOSS_MAX   10			// En realité le pas 
 #define MINUTE_DEBUT		180
-#define MINUTE_FIN_MIN		660
-#define MINUTE_FIN_MAX		660			// 720 -> 18h
+#define MINUTE_FIN_MIN		480
+#define MINUTE_FIN_MAX		1020			// 720 -> 18h
 #define STRATEGIE_SL		1          // 1 = MAX ;   2 = MIN_ANNEE_NEG  ;  3 = MIN_SOMME_ANNEE_NEG ;
 #define NB_VOL_REF			5 
 #define DCLGE_HOR			6
@@ -366,9 +366,12 @@ double	 				tGainJourPtfSL[ANNEE][MOIS][JOUR];
 
 sGainMois				tGainMois[ANNEE][MOIS];
 sGainMoisSL				tGainMoisSL[ANNEE][MOIS];
+sGainMoisSL				tGainMoisSL_VOL[ANNEE][MOIS];
 
 sGainAnnee				tGainAnnee[ANNEE];
 sGainAnneeSL			tGainAnneeSL[ANNEE];
+sGainAnneeSL			tGainAnneeSL_VOL[ANNEE];
+
 
 sGainTotal				gainTotal;
 sGainTotalSL 			gainTotalSL;
@@ -586,7 +589,6 @@ int main(int argc, char *argv[])
 
 		for (int i = 0; i < nbDevises; i++)
 		{
-
 			initialisation(&paramAppli.listeDevise[i]);
 			
 			//printf("avant lectureFichiersData\n");
@@ -785,9 +787,12 @@ void initialisation(infoTraitement *infT)
 
 	memset(tGainMois,0,sizeof(tGainMois));
 	memset(tGainMoisSL,0,sizeof(tGainMoisSL));
+	memset(tGainMoisSL_VOL,0,sizeof(tGainMoisSL_VOL));
+	
 	
 	memset(tGainAnnee,0,sizeof(tGainAnnee));
 	memset(tGainAnneeSL,0,sizeof(tGainAnneeSL));
+	memset(tGainAnneeSL_VOL,0,sizeof(tGainAnneeSL_VOL));
 
 	memset(tGainJour,0,sizeof(tGainJour));
 	memset(tGainJourSL,0,sizeof(tGainJourSL));
@@ -1184,9 +1189,9 @@ void comparerMeilleureHeureSL(int anneeDebut, int anneeFin, sGainJourHeureSL tab
 	gainTotalHeure.gainHeureMaxSL = gainTotalSL.meilleurGainSL;
 
 
-	printf("comparerMeilleureHeureSL: avant : %f, isTp=%d, isSl=%d\n",tabJ[8][10][10].gain,tabJ[8][10][10].isTp, tabJ[8][10][10].isSl);
+	//printf("comparerMeilleureHeureSL: avant : %f, isTp=%d, isSl=%d\n",tabJ[8][10][10].gain,tabJ[8][10][10].isTp, tabJ[8][10][10].isSl);
 	remplirStructJourSL(anneeDebut, anneeFin, tabJ);
-	printf("comparerMeilleureHeureSL: apres : %f, isTp=%d, isSl=%d\n",tabJ[8][10][10].gain, tabJ[8][10][10].isTp, tabJ[8][10][10].isSl);
+	//printf("comparerMeilleureHeureSL: apres : %f, isTp=%d, isSl=%d\n",tabJ[8][10][10].gain, tabJ[8][10][10].isTp, tabJ[8][10][10].isSl);
 }
 
 
@@ -1210,7 +1215,7 @@ void comparerMeilleureHeureVOL(int anneeDebut, int anneeFin, sGainJourHeure tabJ
 
 void comparerMeilleureHeureSL_VOL(int anneeDebut, int anneeFin, sGainJourHeureSL tabJ[ANNEE][MOIS][JOUR])
 {
-	printf("meilleurGain : %f, meilleurGainHeure %f\n",gainTotalSL_VOL.meilleurGainSL, gainTotalHeureVOL.gainHeureMaxSL );
+	//printf("meilleurGain : %f, meilleurGainHeure %f\n",gainTotalSL_VOL.meilleurGainSL, gainTotalHeureVOL.gainHeureMaxSL );
 	if(gainTotalSL_VOL.meilleurGainSL < gainTotalHeureVOL.gainHeureMaxSL) return;
 
 
@@ -1525,6 +1530,7 @@ void verifierSiMeilleurSL(int l, int min, int max)
 
 void verifierSiMeilleurSL_VOL(int l, int min, int max)
 {
+	//printf("DANS verifierSiMeilleurSL_VOL :: gainTotalSL_VOL.meilleurGainSL=%f, gainTotalSL_VOL.tGain[l]=%f\n", gainTotalSL_VOL.meilleurGainSL, gainTotalSL_VOL.tGain[l]);
 	if( gainTotalSL_VOL.meilleurGainSL < gainTotalSL_VOL.tGain[l]){
 		gainTotalSL_VOL.meilleurGainSL = gainTotalSL_VOL.tGain[l];
 		gainTotalSL_VOL.maxSL     = ABS_STOP_LOSS_MAX*l;
@@ -1887,7 +1893,7 @@ void calculGainMinuteSLetVOL(int anneeDebut, int anneeFin, infoTraitement * infT
 					gainTotalSL_VOL.tGainAchat[loss] += tGainJourSL_VOL[year][month][day].tGainA[loss];
 					
 					gainTotalSL_VOL.perteMax = MIN(gainTotalSL_VOL.perteMax, tGainJourSL_VOL[year][month][day].tGain[loss] );
-					tGainMoisSL[year][month].tGain[loss] += tGainJourSL_VOL[year][month][day].tGain[loss] ;
+					tGainMoisSL_VOL[year][month].tGain[loss] += tGainJourSL_VOL[year][month][day].tGain[loss] ;
 
 					volJournee = tVolDeuxPasses[year][month][day];
 
@@ -1896,9 +1902,10 @@ void calculGainMinuteSLetVOL(int anneeDebut, int anneeFin, infoTraitement * infT
 					// fprintf(fe, "%d/%d/%d;%f\n",day+1, month+1,year+2000,tGainJourSL_VOL[year][month][day].tGain[loss]);
 					// fclose(fe);
 				} // for day
-				tGainAnneeSL[year].tGain[loss] += tGainMoisSL[year][month].tGain[loss] ;
+				tGainAnneeSL_VOL[year].tGain[loss] += tGainMoisSL_VOL[year][month].tGain[loss] ;
 			} // for month
-			gainTotalSL_VOL.tGain[loss] += tGainAnneeSL[year].tGain[loss];
+			gainTotalSL_VOL.tGain[loss] += tGainAnneeSL_VOL[year].tGain[loss];
+			// printf("dans calculGainMinuteSLetVOL :: gainTotalSL_VOL.tGain[%d]=%F\n",loss, gainTotalSL_VOL.tGain[loss]);
 		} // for year
 		verifierSiMeilleurSL_VOL(loss, stopMin, stopMax);
 		
@@ -1910,7 +1917,7 @@ void calculGainMinuteSLetVOL(int anneeDebut, int anneeFin, infoTraitement * infT
 	ecrireSLdansFichier(param,stopMin,stopMax, infT);
 	ecrireSLAetSLVdansFichier(param, infT);
 
-		if(infT->ecrireGainJ[0] == 'O')
+	if(infT->ecrireGainJ[0] == 'O')
 	{
 		comparerMeilleureHeureSL_VOL(anneeDebut, anneeFin, tGainJourHeureSL_VOL);
 		comparer18HeureSL_VOL(anneeDebut, anneeFin, tGainJourH18SL_VOL);
